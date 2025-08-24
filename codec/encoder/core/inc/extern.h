@@ -94,6 +94,7 @@ void WelsUninitEncoderExt (sWelsEncCtx** ppCtx);
  * \return  EFrameType (videoFrameTypeIDR/videoFrameTypeI/videoFrameTypeP)
  */
 int32_t WelsEncoderEncodeExt (sWelsEncCtx*, SFrameBSInfo* pFbi, const SSourcePicture* kpSrcPic);
+int32_t WelsEncoderCopyReconFrame(sWelsEncCtx* pCtx, SSourcePicture *pSrcPic, unsigned char* pDst[4]);
 
 int32_t WelsEncoderEncodeParameterSets (sWelsEncCtx* pCtx, void* pDst);
 
@@ -121,4 +122,3 @@ void FilterLTRMarkingFeedback (sWelsEncCtx* pCtx, SLTRMarkingFeedback* pLTRMarki
 }
 
 #endif//WELS_ENCODER_CALLBACK_H__
-

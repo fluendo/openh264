@@ -55,6 +55,7 @@
 #include "slice_multi_threading.h"
 #include "measure_time.h"
 #include "svc_set_mb_syn.h"
+#include "stdio.h"
 
 namespace WelsEnc {
 
@@ -3489,6 +3490,11 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     return ENC_RETURN_MEMALLOCERR;
   }
 
+  // print iSpatialNum for debug (using printf)
+  printf ("\nMO:  iSpatialNum: %d\n", iSpatialNum);
+
+
+
   if (pCtx->pFuncList->pfRc.pfWelsUpdateMaxBrWindowStatus) {
     pCtx->pFuncList->pfRc.pfWelsUpdateMaxBrWindowStatus (pCtx, iSpatialNum, pFbi->uiTimeStamp);
   }
@@ -3907,6 +3913,35 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         WelsLog (pLogCtx, WELS_LOG_WARNING,
                  "WelsEncoderEncodeExt()MinCr Checking,codec bitstream size is larger than Level limitation");
     }
+
+    if (iSpatialNum == 1) {
+
+        // alloc space for recon frame if needed
+        if (!pCtx->pLastReconFrame[0]) {
+            SWelsSPS* pSpsTmp = pCtx->pCurDqLayer->sLayerInfo.pSpsP;
+            bool bFrameCroppingFlag = pSpsTmp->bFrameCroppingFlag;
+            SCropOffset* pFrameCrop = &pSpsTmp->sFrameCrop;
+
+            const int32_t kiLumaWidth    = bFrameCroppingFlag ? (fsnr->iWidthInPixel - ((pFrameCrop->iCropLeft +
+                    pFrameCrop->iCropRight) << 1)) : fsnr->iWidthInPixel;
+            const int32_t kiLumaHeight   = bFrameCroppingFlag ? (fsnr->iHeightInPixel - ((pFrameCrop->iCropTop +
+                    pFrameCrop->iCropBottom) << 1)) : fsnr->iHeightInPixel;
+            const int32_t kiChromaWidth  = kiLumaWidth >> 1;
+            const int32_t kiChromaHeight = kiLumaHeight >> 1;
+
+            //print sizes of recon frame
+            printf ("\n MO:  Recon frame size: width: %d, height: %d", kiLumaWidth, kiLumaHeight);
+            printf ("  Chroma size: width: %d, height: %d\n", kiChromaWidth, kiChromaHeight);
+
+
+            pCtx->pLastReconFrame[0] = (unsigned char*) calloc (1, kiLumaWidth * kiLumaHeight);
+            pCtx->pLastReconFrame[1] = (unsigned char*) calloc (1, kiChromaWidth * kiChromaHeight);
+            pCtx->pLastReconFrame[2] = (unsigned char*) calloc (1, kiChromaWidth * kiChromaHeight);
+        }
+
+        CopyRecFrameToBuffers(fsnr, pCtx->pLastReconFrame, pCtx->pCurDqLayer);
+    }
+
 #ifdef ENABLE_FRAME_DUMP
     {
       DumpDependencyRec (fsnr, &pSvcParam->sDependencyLayers[iCurDid].sRecFileName[0], iCurDid,
@@ -3914,6 +3949,102 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       pCtx->bDependencyRecFlag[iCurDid] = true;
     }
 #endif//ENABLE_FRAME_DUMP
+
+    // copy recostructed frame (fsnr) to pFbi->pReconPicture
+    // allocate pFbi->pReconPicture if needed
+    if (!pFbi->pReconPicture) {
+        pFbi->pReconPicture = (SSourcePicture*) calloc (1, sizeof (SSourcePicture));
+        if (!pFbi->pReconPicture) {
+          WelsLog (pLogCtx, WELS_LOG_ERROR, "Failed to allocate memory for pFbi->pReconPicture");
+          return ENC_RETURN_MEMALLOCERR;
+        }
+        pFbi->pReconPicture->iColorFormat = videoFormatI420;
+        pFbi->pReconPicture->iStride[0]  = pSrcPic->iStride[0];
+        pFbi->pReconPicture->iStride[1]  = pSrcPic->iStride[1];
+        pFbi->pReconPicture->iStride[2] = pSrcPic->iStride[2];
+        pFbi->pReconPicture->iPicWidth     = pSrcPic->iPicWidth;
+        pFbi->pReconPicture->iPicHeight    = pSrcPic->iPicHeight;
+
+        if (pFbi->pReconPicture->iStride[0] != fsnr->iLineSize[0] ||
+              pFbi->pReconPicture->iStride[1] != fsnr->iLineSize[1] ||
+              pFbi->pReconPicture->iStride[2] != fsnr->iLineSize[2]) {
+          printf ("\nWelsEncoderEncodeExt(), pSrcPic stride not equal to align16, not supported in recon copy!\n");
+          //print dimesions of pReconpicture and fsnr
+          printf ("pFbi->pReconPicture: width: %d, height: %d, stride[0]: %d, stride[1]: %d, stride[2]: %d\n",
+                  pFbi->pReconPicture->iPicWidth, pFbi->pReconPicture->iPicHeight,
+                  pFbi->pReconPicture->iStride[0], pFbi->pReconPicture->iStride[1],
+                    pFbi->pReconPicture->iStride[2]);
+          printf ("fsnr: width: %d, height: %d, lineSize[0]: %d, lineSize[1]: %d, lineSize[2]: %d\n",
+                  fsnr->iWidthInPixel, fsnr->iHeightInPixel,
+                  fsnr->iLineSize[0], fsnr->iLineSize[1], fsnr->iLineSize[2]);
+
+        }
+
+        pFbi->pReconPicture->pData[0]   = (unsigned char *) calloc (1, pFbi->pReconPicture->iStride[0] * pFbi->pReconPicture->iPicHeight);
+        pFbi->pReconPicture->pData[1]   = (unsigned char *) calloc (1, pFbi->pReconPicture->iStride[1] * (
+            pFbi->pReconPicture->iPicHeight >> 1));
+        pFbi->pReconPicture->pData[2]   = (unsigned char *) calloc (1, pFbi->pReconPicture->iStride[2] * (
+            pFbi->pReconPicture->iPicHeight >> 1));
+        if (!pFbi->pReconPicture->pData[0] || !pFbi->pReconPicture->pData[1] || !pFbi->pReconPicture->pData[2]) {
+          WelsLog (pLogCtx, WELS_LOG_ERROR, "Failed to allocate memory for pFbi->pReconPicture->pData");
+          // return ENC_RETURN_MEMALLOCERR;
+        }
+    }
+
+    // copy Y
+    {
+        for (int32_t i = 0; i < pFbi->pReconPicture->iPicHeight; i++) {
+            memcpy (pFbi->pReconPicture->pData[0] + i * pFbi->pReconPicture->iStride[0],
+                    fsnr->pData[0] + i * fsnr->iLineSize[0], pFbi->pReconPicture->iPicWidth);
+        }
+    }
+    // copy U and V
+    {
+        for (int32_t i = 0; i < (pFbi->pReconPicture->iPicHeight >> 1); i++) {
+            memcpy (pFbi->pReconPicture->pData[1] + i * pFbi->pReconPicture->iStride[1],
+                    fsnr->pData[1] + i * fsnr->iLineSize[1], (pFbi->pReconPicture->iPicWidth >> 1));
+            memcpy (pFbi->pReconPicture->pData[2] + i * pFbi->pReconPicture->iStride[2],
+                    fsnr->pData[2] + i * fsnr->iLineSize[2], (pFbi->pReconPicture->iPicWidth >> 1));
+        }
+    }
+
+    // dump pFbi->pReconPicture to a file /tmp/recon.yuv video
+    {
+      FILE* pFile = fopen ("/tmp/recon.yuv", "ab");
+      if (pFile) {
+        fwrite (pFbi->pReconPicture->pData[0], 1, pFbi->pReconPicture->iStride[0] * pFbi->pReconPicture->iPicHeight,
+                pFile);
+        fwrite (pFbi->pReconPicture->pData[1], 1,
+                pFbi->pReconPicture->iStride[1] * (pFbi->pReconPicture->iPicHeight >> 1), pFile);
+        fwrite (pFbi->pReconPicture->pData[2], 1,
+                pFbi->pReconPicture->iStride[2] * (pFbi->pReconPicture->iPicHeight >> 1), pFile);
+        fclose (pFile);
+      }
+    }
+    // save video data (resolution) to /tmp/recon.txt, do it only once
+    {
+        static bool bFirstFlag = true;
+        if (bFirstFlag) {
+            FILE* pFile = fopen ("/tmp/recon.txt", "w");
+            if (pFile) {
+            fprintf (pFile, "%dx%d\n", pFbi->pReconPicture->iPicWidth, pFbi->pReconPicture->iPicHeight);
+            fclose (pFile);
+            }
+            bFirstFlag = false;
+        }
+    }
+
+    // dump source viodo to /tmp/source.yuv for comparison
+    {
+      FILE* pFile = fopen ("/tmp/source.yuv", "ab");
+      if (pFile) {
+        fwrite (pSrcPic->pData[0], 1, pSrcPic->iStride[0] * pSrcPic->iPicHeight, pFile);
+        fwrite (pSrcPic->pData[1], 1, pSrcPic->iStride[1] * (pSrcPic->iPicHeight >> 1), pFile);
+        fwrite (pSrcPic->pData[2], 1, pSrcPic->iStride[2] * (pSrcPic->iPicHeight >> 1), pFile);
+        fclose (pFile);
+      }
+    }
+
 
     if (fsnr && (pSvcParam->bPsnrY || pSrcPic->bPsnrY)) {
       fSnrY = WelsCalcPsnr (fsnr->pData[0],
@@ -4164,6 +4295,26 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   }
 #endif
   return ENC_RETURN_SUCCESS;
+}
+
+int32_t WelsEncoderCopyReconFrame(sWelsEncCtx* pCtx, SSourcePicture *pSrcPic, unsigned char* pDst[4])
+{
+    if (!pSrcPic || !pDst)
+        return ENC_RETURN_INVALIDINPUT;
+
+    for (int stride = 0; stride < 3; stride++)
+    {
+        if (pSrcPic->iStride[stride] == 0 || pDst[stride] == NULL)
+            continue;
+        for (int32_t i = 0; i < pSrcPic->iPicHeight; i++) {
+            printf("here");
+            memcpy (pDst[stride] + i * pSrcPic->iStride[stride],
+                    pCtx->pLastReconFrame[stride] + i * pSrcPic->iPicWidth, pSrcPic->iPicWidth);
+        }
+
+    }
+
+    return ENC_RETURN_SUCCESS;
 }
 
 /*!

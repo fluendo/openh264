@@ -101,6 +101,11 @@ extern "C" void DumpDependencyRec (SPicture* pSrcPic, const char* kpFileName, co
  */
 void DumpRecFrame (SPicture* pSrcPic, const char* kpFileName, const int8_t kiDid, bool bAppend, SDqLayer* pDqLayer);
 
+/*!
+ * \brief   copy the reconstruction frame to the output buffers
+ */
+void CopyRecFrameToBuffers(SPicture* pCurPicture, unsigned char* pData[3], SDqLayer* pDqLayer);
+
 
 /*!
  * \brief   encode overall slices pData in a frame

@@ -235,6 +235,7 @@ typedef struct TagWelsEncCtx {
 #endif
   int64_t            uiLastTimestamp;
   uint8_t*           pDynamicBsBuffer[MAX_THREADS_NUM];
+  unsigned char *    pLastReconFrame[3]; //YUV data for last recon frame
 } sWelsEncCtx/*, *PWelsEncCtx*/;
 }
 #endif//sWelsEncCtx_H__

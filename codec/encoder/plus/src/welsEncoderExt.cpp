@@ -477,6 +477,11 @@ int CWelsH264SVCEncoder ::EncodeFrameInternal (const SSourcePicture*  pSrcPic, S
 
 }
 
+int CWelsH264SVCEncoder::CopyReconFrame(SSourcePicture* pSrcPic, unsigned char* pDst[4])
+{
+  return WelsEncoderCopyReconFrame(m_pEncContext, pSrcPic, pDst);
+}
+
 int CWelsH264SVCEncoder::EncodeParameterSets (SFrameBSInfo* pBsInfo) {
   return WelsEncoderEncodeParameterSets (m_pEncContext, pBsInfo);
 }

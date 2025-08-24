@@ -308,6 +308,16 @@ class ISVCEncoder {
   */
   virtual int EXTAPI EncodeFrame (const SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) = 0;
 
+ /**
+   * @brief Copy the reconstructed frame
+   * @param pData[0] Y data buffer pointer
+   *        pData[1] U data buffer pointer
+   *        pData[2] V data buffer pointer
+   *        pData[3] Alpha data buffer pointer
+   * @return  0 - success; otherwise -failed;
+   */
+  virtual int EXTAPI CopyReconFrame (SSourcePicture *pSrcPic, unsigned char* pData[4]) = 0;
+
   /**
   * @brief  Encode the parameters from output bit stream
   * @param  pBsInfo output bit stream
