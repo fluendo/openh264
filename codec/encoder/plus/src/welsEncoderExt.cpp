@@ -477,6 +477,10 @@ int CWelsH264SVCEncoder ::EncodeFrameInternal (const SSourcePicture*  pSrcPic, S
 
 }
 
+int CWelsH264SVCEncoder::CopyLastReconFrame (SSourcePicture* pSrcPic, unsigned char* pDst[3]) {
+  return WelsEncoderCopyLastReconFrame (m_pEncContext, pSrcPic, pDst);
+}
+
 int CWelsH264SVCEncoder::EncodeParameterSets (SFrameBSInfo* pBsInfo) {
   return WelsEncoderEncodeParameterSets (m_pEncContext, pBsInfo);
 }
@@ -1185,6 +1189,13 @@ int CWelsH264SVCEncoder::SetOption (ENCODER_OPTION eOptionId, void* pOption) {
              "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_BITS_VARY_PERCENTAGE,iBitsVaryPercentage = %d", iValue);
   }
   break;
+  case ENCODER_OPTION_ENABLE_LAST_RECON_FRAME: {
+    bool bValue = * (static_cast<bool*> (pOption));
+    m_pEncContext->bEnableLastReconFrame = bValue;
+    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO,
+             "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_ENABLE_LAST_RECON_FRAME,bEnableLastReconFrame = %d", bValue);
+  }
+  break;
 
   default:
     return cmInitParaError;
@@ -1299,6 +1310,10 @@ int CWelsH264SVCEncoder::GetOption (ENCODER_OPTION eOptionId, void* pOption) {
   break;
   case ENCODER_OPTION_COMPLEXITY: {
     * ((int32_t*)pOption) =  m_pEncContext->pSvcParam->iComplexityMode;
+  }
+  break;
+  case ENCODER_OPTION_ENABLE_LAST_RECON_FRAME: {
+    * ((bool*)pOption) = m_pEncContext->bEnableLastReconFrame;
   }
   break;
   default:

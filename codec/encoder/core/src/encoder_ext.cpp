@@ -1983,6 +1983,13 @@ void FreeMemorySvc (sWelsEncCtx** ppCtx) {
       pCtx->pMvdCostTable = NULL;
     }
 
+    if (NULL != pCtx->pLastReconFrame[0]) {
+      pMa->WelsFree (pCtx->pLastReconFrame[0], "pLastReconFrame");
+      pCtx->pLastReconFrame[0] = NULL;
+      pCtx->pLastReconFrame[1] = NULL;
+      pCtx->pLastReconFrame[2] = NULL;
+    }
+
     FreeCodingParam (&pCtx->pSvcParam, pMa);
     if (NULL != pCtx->pFuncList) {
       if (NULL != pCtx->pFuncList->pParametersetStrategy) {
@@ -2374,6 +2381,7 @@ int32_t WelsInitEncoderExt (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pCodingPar
   pCtx->iStatisticsLogInterval = STATISTICS_LOG_INTERVAL_MS;
   pCtx->uiLastTimestamp = -1;
   pCtx->bDeliveryFlag = true;
+  pCtx->bEnableLastReconFrame = false;
   *ppCtx = pCtx;
 
   WelsLog (pLogCtx, WELS_LOG_INFO, "WelsInitEncoderExt(), pCtx= 0x%p.", (void*)pCtx);
@@ -3915,6 +3923,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     }
 #endif//ENABLE_FRAME_DUMP
 
+    if (iSpatialNum == 1) {
+      SaveLastReconFrame (fsnr, pCtx, pCtx->pCurDqLayer);
+    }
+
     if (fsnr && (pSvcParam->bPsnrY || pSrcPic->bPsnrY)) {
       fSnrY = WelsCalcPsnr (fsnr->pData[0],
                             fsnr->iLineSize[0],
@@ -4163,6 +4175,29 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     return ENC_RETURN_UNEXPECTED;
   }
 #endif
+  return ENC_RETURN_SUCCESS;
+}
+
+int32_t WelsEncoderCopyLastReconFrame (sWelsEncCtx* pCtx, SSourcePicture* pSrcPic, unsigned char* pDst[3]) {
+  if (!pSrcPic || !pDst)
+    return ENC_RETURN_INVALIDINPUT;
+  if (!pCtx->bEnableLastReconFrame) {
+    WelsLog (& pCtx->sLogCtx, WELS_LOG_ERROR, "WelsEncoderCopyLastReconFrame(), last recon frame not enabled!");
+    return ENC_RETURN_UNEXPECTED;
+  }
+  if (!pCtx->pLastReconFrame[0]) {
+    WelsLog (& pCtx->sLogCtx, WELS_LOG_ERROR, "WelsEncoderCopyLastReconFrame(), last recon frame buffer not allocated!");
+    return ENC_RETURN_UNEXPECTED;
+  }
+
+  for (int stride = 0; stride < 3; stride++) {
+    if (pSrcPic->iStride[stride] == 0 || pDst[stride] == NULL)
+      continue;
+    for (int32_t i = 0; i < pSrcPic->iPicHeight; i++)
+      memcpy (pDst[stride] + i * pSrcPic->iStride[stride],
+              pCtx->pLastReconFrame[stride] + i * pSrcPic->iPicWidth, pSrcPic->iPicWidth);
+  }
+
   return ENC_RETURN_SUCCESS;
 }
 

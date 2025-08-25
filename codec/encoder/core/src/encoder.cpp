@@ -544,6 +544,52 @@ void DumpRecFrame (SPicture* pCurPicture, const char* kpFileName, const int8_t k
   }
 }
 
+void SaveLastReconFrame (SPicture* pCurPicture, sWelsEncCtx* pEncCtx, SDqLayer* pDqLayer) {
+  if (pEncCtx->bEnableLastReconFrame) {
+    SWelsSPS* pSpsTmp = pDqLayer->sLayerInfo.pSpsP;
+    bool bFrameCroppingFlag = pSpsTmp->bFrameCroppingFlag;
+    SCropOffset* pFrameCrop = &pSpsTmp->sFrameCrop;
+
+    const int32_t kiStrideY      = pCurPicture->iLineSize[0];
+    const int32_t kiLumaWidth    = bFrameCroppingFlag ? (pCurPicture->iWidthInPixel - ((pFrameCrop->iCropLeft +
+                                   pFrameCrop->iCropRight) << 1)) : pCurPicture->iWidthInPixel;
+    const int32_t kiLumaHeight   = bFrameCroppingFlag ? (pCurPicture->iHeightInPixel - ((pFrameCrop->iCropTop +
+                                   pFrameCrop->iCropBottom) << 1)) : pCurPicture->iHeightInPixel;
+    const int32_t kiChromaWidth  = kiLumaWidth >> 1;
+    const int32_t kiChromaHeight = kiLumaHeight >> 1;
+    const int32_t kiLumaSize = kiLumaWidth * kiLumaHeight;
+    const int32_t kiChromaSize = kiChromaWidth * kiChromaHeight;
+
+    if (NULL == pEncCtx->pLastReconFrame[0]) {
+      CMemoryAlign* pMa = pEncCtx->pMemAlign;
+
+      pEncCtx->pLastReconFrame[0] = (unsigned char*) pMa->WelsMallocz (kiLumaSize +
+                                    (kiChromaSize << 1), "pLastReconFrame");
+      pEncCtx->pLastReconFrame[1] = pEncCtx->pLastReconFrame[0] + kiLumaSize;
+      pEncCtx->pLastReconFrame[2] = pEncCtx->pLastReconFrame[1] + kiChromaSize;
+    }
+
+    if (NULL != pEncCtx->pLastReconFrame[0]) {
+      // Copy Y plane
+      unsigned char* pSrcY = bFrameCroppingFlag ? (pCurPicture->pData[0] + kiStrideY * (pFrameCrop->iCropTop << 1) +
+                             (pFrameCrop->iCropLeft << 1)) : pCurPicture->pData[0];
+      for (int32_t j = 0; j < kiLumaHeight; ++j) {
+        memcpy (pEncCtx->pLastReconFrame[0] + j * kiLumaWidth, pSrcY + j * kiStrideY, kiLumaWidth);
+      }
+
+      // Copy U and V planes
+      for (int i = 1; i < 3; ++i) {
+        const int32_t kiStrideUV = pCurPicture->iLineSize[i];
+        unsigned char* pSrcUV = bFrameCroppingFlag ? (pCurPicture->pData[i] + kiStrideUV * pFrameCrop->iCropTop +
+                                pFrameCrop->iCropLeft)
+                                : pCurPicture->pData[i];
+        for (int32_t j = 0; j < kiChromaHeight; ++j) {
+          memcpy (pEncCtx->pLastReconFrame[i] + j * kiChromaWidth, pSrcUV + j * kiStrideUV, kiChromaWidth);
+        }
+      }
+    }
+  }
+}
 
 
 /***********************************************************************************/
