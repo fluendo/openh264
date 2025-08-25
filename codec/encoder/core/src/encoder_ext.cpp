@@ -4178,6 +4178,29 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
   return ENC_RETURN_SUCCESS;
 }
 
+int32_t WelsEncoderCopyLastReconFrame (sWelsEncCtx* pCtx, SSourcePicture* pSrcPic, unsigned char* pDst[3]) {
+  if (!pSrcPic || !pDst)
+    return ENC_RETURN_INVALIDINPUT;
+  if (!pCtx->bEnableLastReconFrame) {
+    WelsLog (& pCtx->sLogCtx, WELS_LOG_ERROR, "WelsEncoderCopyLastReconFrame(), last recon frame not enabled!");
+    return ENC_RETURN_UNEXPECTED;
+  }
+  if (!pCtx->pLastReconFrame[0]) {
+    WelsLog (& pCtx->sLogCtx, WELS_LOG_ERROR, "WelsEncoderCopyLastReconFrame(), last recon frame buffer not allocated!");
+    return ENC_RETURN_UNEXPECTED;
+  }
+
+  for (int stride = 0; stride < 3; stride++) {
+    if (pSrcPic->iStride[stride] == 0 || pDst[stride] == NULL)
+      continue;
+    for (int32_t i = 0; i < pSrcPic->iPicHeight; i++)
+      memcpy (pDst[stride] + i * pSrcPic->iStride[stride],
+              pCtx->pLastReconFrame[stride] + i * pSrcPic->iPicWidth, pSrcPic->iPicWidth);
+  }
+
+  return ENC_RETURN_SUCCESS;
+}
+
 /*!
  * \brief   Wels SVC encoder parameters adjustment
  *          SVC adjustment results in new requirement in memory blocks adjustment

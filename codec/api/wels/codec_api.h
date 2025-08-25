@@ -309,6 +309,29 @@ class ISVCEncoder {
   virtual int EXTAPI EncodeFrame (const SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) = 0;
 
   /**
+  * @brief Copy the reconstructed YUV frame of the last encoded picture.
+  *
+  * Copies the reconstructed frame data (Y, U, V planes in I420 format) from the encoder's internal buffer
+  * for the most recently encoded frame into user-provided output buffers. This is useful for applications
+  * that require direct access to the raw image, such as real-time preview, quality analysis, or further processing.
+  *
+  * @param pSrcPic Pointer to the ~SSourcePicture~ structure describing the frame layout and dimensions.
+  * @param pData Array of pointers to output buffers for each plane:
+  *        + ~pData[0]~: Y (luma) data buffer pointer
+  *        + ~pData[1]~: U (chroma) data buffer pointer
+  *        + ~pData[2]~: V (chroma) data buffer pointer
+  *        The buffers must be allocated by the caller and be large enough to hold the frame data.
+  * @return ~0~ on success; otherwise, a non-zero error code if the operation fails (e.g., feature not enabled, invalid buffers).
+  *
+  * @note
+  * + The encoder must be initialized with ~ENCODER_OPTION_ENABLE_LAST_RECON_FRAME~ set to ~true~.
+  * + The reconstructed frame is in I420 (YUV 4:2:0 planar) format.
+  * + This function does not encode or decode; it only copies the internal buffer to user memory.
+  * + Typical use cases include preview, PSNR/SSIM calculation, or integration with video pipelines needing raw YUV frames.
+  */
+  virtual int EXTAPI CopyLastReconFrame (SSourcePicture* pSrcPic, unsigned char* pData[3]) = 0;
+
+  /**
   * @brief  Encode the parameters from output bit stream
   * @param  pBsInfo output bit stream
   * @return 0 - success; otherwise - failed;
