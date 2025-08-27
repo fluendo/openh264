@@ -372,7 +372,7 @@ int32_t CWelsH264SVCEncoder::Uninitialize() {
 /*
  *  SVC core encoding
  */
-int CWelsH264SVCEncoder::EncodeFrame (const SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) {
+int CWelsH264SVCEncoder::EncodeFrame (SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) {
   if (! (kpSrcPic && m_bInitialFlag && pBsInfo)) {
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_ERROR, "CWelsH264SVCEncoder::EncodeFrame(), cmInitParaError.");
     return cmInitParaError;
@@ -401,7 +401,7 @@ int CWelsH264SVCEncoder::EncodeFrame (const SSourcePicture* kpSrcPic, SFrameBSIn
 }
 
 
-int CWelsH264SVCEncoder ::EncodeFrameInternal (const SSourcePicture*  pSrcPic, SFrameBSInfo* pBsInfo) {
+int CWelsH264SVCEncoder ::EncodeFrameInternal (SSourcePicture*  pSrcPic, SFrameBSInfo* pBsInfo) {
 
   if ((pSrcPic->iPicWidth < 16) || ((pSrcPic->iPicHeight < 16))) {
     WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_ERROR, "Don't support width(%d) or height(%d) which is less than 16!",

@@ -3438,7 +3438,7 @@ EVideoFrameType PrepareEncodeFrame (sWelsEncCtx* pCtx, SLayerBSInfo*& pLayerBsIn
  * \pParam  pSrcPic         Source Picture
  * \return  EFrameType (videoFrameTypeIDR/videoFrameTypeI/videoFrameTypeP)
  */
-int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSourcePicture* pSrcPic) {
+int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, SSourcePicture* pSrcPic) {
   if (pCtx == NULL) {
     return ENC_RETURN_MEMALLOCERR;
   }
@@ -3907,6 +3907,44 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         WelsLog (pLogCtx, WELS_LOG_WARNING,
                  "WelsEncoderEncodeExt()MinCr Checking,codec bitstream size is larger than Level limitation");
     }
+
+    if (iSpatialNum == 1 && pSrcPic->bSaveRecon && NULL != pSrcPic->pReconData[0]) {
+      SWelsSPS* pSpsTmp = pCtx->pCurDqLayer->sLayerInfo.pSpsP;
+      bool bFrameCroppingFlag = pSpsTmp->bFrameCroppingFlag;
+      SCropOffset* pFrameCrop = &pSpsTmp->sFrameCrop;
+
+      const int32_t kiStrideY      = fsnr->iLineSize[0];
+      const int32_t kiLumaWidth    = bFrameCroppingFlag ? (fsnr->iWidthInPixel - ((pFrameCrop->iCropLeft +
+          pFrameCrop->iCropRight) << 1)) : fsnr->iWidthInPixel;
+      const int32_t kiLumaHeight   = bFrameCroppingFlag ? (fsnr->iHeightInPixel - ((pFrameCrop->iCropTop +
+          pFrameCrop->iCropBottom) << 1)) : fsnr->iHeightInPixel;
+      const int32_t kiChromaWidth  = kiLumaWidth >> 1;
+      const int32_t kiChromaHeight = kiLumaHeight >> 1;
+
+      // Copy Y plane
+      unsigned char* pSrcY = bFrameCroppingFlag ? (fsnr->pData[0] + kiStrideY * (pFrameCrop->iCropTop << 1) +
+          (pFrameCrop->iCropLeft << 1)) : fsnr->pData[0];
+      for (int32_t j = 0; j < kiLumaHeight; ++j) {
+        memcpy (pSrcPic->pReconData[0] + j * kiLumaWidth, pSrcY + j * kiStrideY, kiLumaWidth);
+      }
+
+      // Copy U and V planes
+      for (int i = 1; i < 3; ++i) {
+        if (NULL == pSrcPic->pReconData[i])
+          continue;
+        const int32_t kiStrideUV = fsnr->iLineSize[i];
+        unsigned char* pSrcUV = bFrameCroppingFlag ? (fsnr->pData[i] + kiStrideUV * pFrameCrop->iCropTop +
+            pFrameCrop->iCropLeft)
+          : fsnr->pData[i];
+        for (int32_t j = 0; j < kiChromaHeight; ++j) {
+          memcpy (pSrcPic->pReconData[i] + j * kiChromaWidth, pSrcUV + j * kiStrideUV, kiChromaWidth);
+        }
+      }
+
+      pSrcPic->bHaveRecon = true;
+    }
+
+
 #ifdef ENABLE_FRAME_DUMP
     {
       DumpDependencyRec (fsnr, &pSvcParam->sDependencyLayers[iCurDid].sRecFileName[0], iCurDid,
