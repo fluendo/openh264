@@ -144,7 +144,8 @@ typedef enum {
 
   ENCODER_OPTION_BITS_VARY_PERCENTAGE,       ///< bit vary percentage
 
-  ENCODER_OPTION_ENABLE_LAST_RECON_FRAME     ///< enable access last frame recon for app layer
+  ENCODER_OPTION_ENABLE_LAST_RECON_FRAME,    ///< enable access last frame recon for app layer
+  ENCODER_OPTION_LAST_RECON_FRAME            ///< get last recon frame for app layer
 } ENCODER_OPTION;
 
 /**
