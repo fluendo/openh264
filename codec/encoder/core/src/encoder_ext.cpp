@@ -1983,6 +1983,13 @@ void FreeMemorySvc (sWelsEncCtx** ppCtx) {
       pCtx->pMvdCostTable = NULL;
     }
 
+    if (NULL != pCtx->pLastReconFrame[0]) {
+      pMa->WelsFree (pCtx->pLastReconFrame[0], "pLastReconFrame");
+      pCtx->pLastReconFrame[0] = NULL;
+      pCtx->pLastReconFrame[1] = NULL;
+      pCtx->pLastReconFrame[2] = NULL;
+    }
+
     FreeCodingParam (&pCtx->pSvcParam, pMa);
     if (NULL != pCtx->pFuncList) {
       if (NULL != pCtx->pFuncList->pParametersetStrategy) {
@@ -2374,6 +2381,7 @@ int32_t WelsInitEncoderExt (sWelsEncCtx** ppCtx, SWelsSvcCodingParam* pCodingPar
   pCtx->iStatisticsLogInterval = STATISTICS_LOG_INTERVAL_MS;
   pCtx->uiLastTimestamp = -1;
   pCtx->bDeliveryFlag = true;
+  pCtx->bEnableLastReconFrame = false;
   *ppCtx = pCtx;
 
   WelsLog (pLogCtx, WELS_LOG_INFO, "WelsInitEncoderExt(), pCtx= 0x%p.", (void*)pCtx);
@@ -3914,6 +3922,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       pCtx->bDependencyRecFlag[iCurDid] = true;
     }
 #endif//ENABLE_FRAME_DUMP
+
+    if (iSpatialNum == 1) {
+      SaveLastReconFrame (fsnr, pCtx, pCtx->pCurDqLayer);
+    }
 
     if (fsnr && (pSvcParam->bPsnrY || pSrcPic->bPsnrY)) {
       fSnrY = WelsCalcPsnr (fsnr->pData[0],

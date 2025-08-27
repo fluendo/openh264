@@ -1185,6 +1185,13 @@ int CWelsH264SVCEncoder::SetOption (ENCODER_OPTION eOptionId, void* pOption) {
              "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_BITS_VARY_PERCENTAGE,iBitsVaryPercentage = %d", iValue);
   }
   break;
+  case ENCODER_OPTION_ENABLE_LAST_RECON_FRAME: {
+    bool bValue = * (static_cast<bool*> (pOption));
+    m_pEncContext->bEnableLastReconFrame = bValue;
+    WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_INFO,
+             "CWelsH264SVCEncoder::SetOption():ENCODER_OPTION_ENABLE_LAST_RECON_FRAME,bEnableLastReconFrame = %d", bValue);
+  }
+  break;
 
   default:
     return cmInitParaError;
@@ -1299,6 +1306,26 @@ int CWelsH264SVCEncoder::GetOption (ENCODER_OPTION eOptionId, void* pOption) {
   break;
   case ENCODER_OPTION_COMPLEXITY: {
     * ((int32_t*)pOption) =  m_pEncContext->pSvcParam->iComplexityMode;
+  }
+  break;
+  case ENCODER_OPTION_ENABLE_LAST_RECON_FRAME: {
+    * ((bool*)pOption) = m_pEncContext->bEnableLastReconFrame;
+  }
+  break;
+  case ENCODER_OPTION_LAST_RECON_FRAME: {
+    unsigned char** ppValue = static_cast<unsigned char**> (pOption);
+    unsigned char* pData[3] = {ppValue[0], ppValue[1], ppValue[2]};
+
+    if (!m_pEncContext->bEnableLastReconFrame || m_pEncContext->pLastReconFrame[0] == NULL
+        || NULL == pData[0]) {
+      return cmInitParaError;
+    } else {
+      memcpy (pData[0], m_pEncContext->pLastReconFrame[0], m_iMaxPicWidth * m_iMaxPicHeight);
+      for (int i = 1; i <= 2; ++i) {
+        if (pData[i] != NULL && m_pEncContext->pLastReconFrame[i] != NULL)
+          memcpy (pData[i], m_pEncContext->pLastReconFrame[i], (m_iMaxPicWidth * m_iMaxPicHeight) >> 2);
+      }
+    }
   }
   break;
   default:
