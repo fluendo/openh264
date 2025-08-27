@@ -666,6 +666,9 @@ typedef struct Source_Picture_s {
   bool      bPsnrY;                ///< get Y PSNR for this frame
   bool      bPsnrU;                ///< get U PSNR for this frame
   bool      bPsnrV;                ///< get V PSNR for this frame
+  unsigned char*  pReconData[3];   ///< plane data of reconstructed frame
+  bool      bSaveRecon;            ///< save reconstructed frame to pReconData
+  bool      bHaveRecon;            ///< whether have reconstructed frame
 } SSourcePicture;
 
 /**

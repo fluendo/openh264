@@ -306,7 +306,7 @@ class ISVCEncoder {
   * @param pBsInfo output bit stream
   * @return  0 - success; otherwise -failed;
   */
-  virtual int EXTAPI EncodeFrame (const SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) = 0;
+  virtual int EXTAPI EncodeFrame (SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) = 0;
 
   /**
   * @brief  Encode the parameters from output bit stream
