@@ -101,6 +101,10 @@ extern "C" void DumpDependencyRec (SPicture* pSrcPic, const char* kpFileName, co
  */
 void DumpRecFrame (SPicture* pSrcPic, const char* kpFileName, const int8_t kiDid, bool bAppend, SDqLayer* pDqLayer);
 
+/*!
+ * \brief   Copy the reconstructed picture to SFrameBSInfo structure
+ */
+void CopyReconPicToBSInfo (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, SPicture* pSrcRecPic, const SSourcePicture* pSrcPic);
 
 /*!
  * \brief   encode overall slices pData in a frame
