@@ -3907,6 +3907,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         WelsLog (pLogCtx, WELS_LOG_WARNING,
                  "WelsEncoderEncodeExt()MinCr Checking,codec bitstream size is larger than Level limitation");
     }
+
+    if (iSpatialNum == 1 && NULL != pFbi->pReconPic)
+      CopyReconPicToBSInfo (pCtx, pFbi, fsnr, pSrcPic);
+
 #ifdef ENABLE_FRAME_DUMP
     {
       DumpDependencyRec (fsnr, &pSvcParam->sDependencyLayers[iCurDid].sRecFileName[0], iCurDid,

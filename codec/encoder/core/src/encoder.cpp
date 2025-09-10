@@ -203,7 +203,7 @@ int32_t InitFunctionPointers (sWelsEncCtx* pEncCtx, SWelsSvcCodingParam* pParam,
 
   //
   WelsInitBGDFunc (pFuncList, pParam->bEnableBackgroundDetection);
-	WelsInitSCDPskipFunc (pFuncList, bScreenContent &&
+  WelsInitSCDPskipFunc (pFuncList, bScreenContent &&
                         (pParam->bEnableSceneChangeDetect) &&
                         (pEncCtx->pSvcParam->iComplexityMode < HIGH_COMPLEXITY));
 
@@ -389,7 +389,7 @@ EVideoFrameType DecideFrameType (sWelsEncCtx* pEncCtx, const int8_t kiSpatialNum
     //pEncCtx->bEncCurFrmAsIdrFlag: 1. first frame should be IDR; 2. idr pause; 3. idr request
     iFrameType = (pEncCtx->pVaa->bIdrPeriodFlag || bSceneChangeFlag
                   || pParamInternal->bEncCurFrmAsIdrFlag) ? videoFrameTypeIDR : videoFrameTypeP;
-    if ( videoFrameTypeIDR == iFrameType ) {
+    if (videoFrameTypeIDR == iFrameType) {
       WelsLog (& (pEncCtx->sLogCtx), WELS_LOG_DEBUG,
                "encoding videoFrameTypeIDR due to ( bIdrPeriodFlag %d, bSceneChangeFlag %d, bEncCurFrmAsIdrFlag %d )",
                pEncCtx->pVaa->bIdrPeriodFlag,
@@ -544,7 +544,61 @@ void DumpRecFrame (SPicture* pCurPicture, const char* kpFileName, const int8_t k
   }
 }
 
+/*!
+ * \brief   Copy the reconstructed picture to SFrameBSInfo structure
+ */
+void CopyReconPicToBSInfo (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, SPicture* pSrcRecPic, const SSourcePicture* pSrcPic) {
+  if (NULL != pFbi->pReconPic->pData[0] || NULL != pFbi->pReconPic->pData[1] || NULL != pFbi->pReconPic->pData[2]) {
+    SReconPicture* pReconPic = pFbi->pReconPic;
+    unsigned char* pReconData[3] = {pReconPic->pData[0], pReconPic->pData[1],
+                                    pReconPic->pData[2]
+                                   };
+    SWelsSPS* pSpsTmp = pCtx->pCurDqLayer->sLayerInfo.pSpsP;
+    bool bFrameCroppingFlag = pSpsTmp->bFrameCroppingFlag;
+    SCropOffset* pFrameCrop = &pSpsTmp->sFrameCrop;
 
+    const int32_t kiStrideY      = pSrcRecPic->iLineSize[0];
+    const int32_t kiLumaWidth    = bFrameCroppingFlag ? (pSrcRecPic->iWidthInPixel - ((pFrameCrop->iCropLeft +
+                                   pFrameCrop->iCropRight) << 1)) : pSrcRecPic->iWidthInPixel;
+    const int32_t kiLumaHeight   = bFrameCroppingFlag ? (pSrcRecPic->iHeightInPixel - ((pFrameCrop->iCropTop +
+                                   pFrameCrop->iCropBottom) << 1)) : pSrcRecPic->iHeightInPixel;
+    const int32_t kiChromaWidth  = kiLumaWidth >> 1;
+    const int32_t kiChromaHeight = kiLumaHeight >> 1;
+
+    pReconPic->iColorFormat = videoFormatI420;
+    pReconPic->iPicWidth    = kiLumaWidth;
+    pReconPic->iPicHeight   = kiLumaHeight;
+    pReconPic->iStride[0]   = kiStrideY;
+    pReconPic->uiTimeStamp  = pSrcPic->uiTimeStamp;
+
+    // Copy Y plane
+    if (NULL != pReconData[0]) {
+      unsigned char* pSrcY = bFrameCroppingFlag ? (pSrcRecPic->pData[0] + kiStrideY * (pFrameCrop->iCropTop << 1) +
+                             (pFrameCrop->iCropLeft << 1)) : pSrcRecPic->pData[0];
+      for (int32_t j = 0; j < kiLumaHeight; ++j) {
+        memcpy (pReconData[0] + j * kiLumaWidth, pSrcY + j * kiStrideY, kiLumaWidth);
+      }
+    }
+
+    // Copy U and V planes
+    for (int i = 1; i < 3; ++i) {
+      if (NULL == pReconData[i])
+        continue;
+      const int32_t kiStrideUV = pSrcRecPic->iLineSize[i];
+      pReconPic->iStride[i] = kiStrideUV;
+      unsigned char* pSrcUV = bFrameCroppingFlag ? (pSrcRecPic->pData[i] + kiStrideUV * pFrameCrop->iCropTop +
+                              pFrameCrop->iCropLeft)
+                              : pSrcRecPic->pData[i];
+      for (int32_t j = 0; j < kiChromaHeight; ++j) {
+        memcpy (pReconData[i] + j * kiChromaWidth, pSrcUV + j * kiStrideUV, kiChromaWidth);
+      }
+    }
+
+    pFbi->bHaveRecon = true;
+  } else {
+    pFbi->bHaveRecon = false;
+  }
+}
 
 /***********************************************************************************/
 void WelsSetMemZero_c (void* pDst, int32_t iSize) { // confirmed_safe_unsafe_usage
