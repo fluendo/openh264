@@ -216,3 +216,8 @@ pkg.generate(libopenh264,
                'and decoding. It is suitable for use in real time ' +
                'applications such as WebRTC.',
 )
+
+if meson.version().version_compare('>= 0.54.0')
+  meson.override_dependency('openh264', openh264_dep)
+endif
+
